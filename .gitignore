@@ -1,0 +1,5 @@
+bin/*.bash
+service-configurations/*.json
+stacks/*.yaml
+./helpers
+machines

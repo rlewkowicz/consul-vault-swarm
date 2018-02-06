@@ -1,0 +1,25 @@
+{
+    "ui": true,
+    "log_level": "trace",
+    "server": true,
+    "bootstrap_expect": %TOTALNODES%,
+    "raft_protocol": 3,
+    "skip_leave_on_interrupt": false,
+    "leave_on_terminate": true,
+    "client_addr": "0.0.0.0",
+    "bind_addr": "{{ GetInterfaceIP eth0 }}",
+    "recursors" : [ "8.8.8.8", "208.67.220.220" ],
+    "ports" : {
+      "dns" : 53,
+      "http" : 80,
+      "https" : 443
+    },
+    "dns_config": {
+        "node_ttl": "4s",
+        "service_ttl": { "*": "2s" }
+    },
+    "domain": "gecis.consul-%SWARMIDENTIFIER%",
+    "enable_script_checks": true,
+    "data_dir":"/tmp/consuldata",
+    "retry_join":["provider=aws tag_key=%EC2_CONSUL_KEY% tag_value=%EC2_CONSUL_VALUE%"]
+}

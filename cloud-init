@@ -1,0 +1,24 @@
+#cloud-config
+bootcmd:
+ - [ sh, -c, "iptables -I INPUT 1 -p tcp --dport 22 -j DROP" ] #Docker was failing becuase it couldn't unlock apt
+ - [ sh, -c, "wget https://storage.googleapis.com/golang/go1.9.2.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.9.2.linux-amd64.tar.gz && mkdir /go" ]
+ - [ sh, -c, 'printf "export GOROOT=/usr/local/go\nexport PATH=\$PATH:\$GOROOT/bin\nexport GOPATH=/go\nexport PATH=\$PATH:\$GOPATH/bin\n" > /root/.bashrc' ]
+
+write_files:
+-   owner: root:root
+    path: /etc/rexray/config.yml
+    content: "rexray:\n  logLevel: debug\nlibstorage:\n  service: ebs\n  integration:\n    volume:\n      operations:\n        mount:\n          preempt: true\n        unmount:\n          ignoreUsedCount: true\n  logging:\n    level: debug\n"
+
+package_update: true
+
+packages:
+ - wazuh-agent
+ - apt-transport-https
+ - git
+ - jq
+
+runcmd:
+- [ sh, -c, "GOROOT=/usr/local/go GOPATH=/go /usr/local/go/bin/go get -u github.com/hashicorp/go-sockaddr/cmd/sockaddr" ]
+- [ sh, -c, "curl -sSL https://dl.bintray.com/emccode/rexray/install | sh" ]
+- [ nohup, sh, -c, "rexray install && service rexray start", '&' ]
+- [ sh, -c, "iptables --flush" ]

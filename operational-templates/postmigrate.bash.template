@@ -1,0 +1,14 @@
+#!/bin/bash
+
+denv() {
+  eval "$(docker-machine env $1)"
+}
+
+denv %CLUSTERNAME%-old-%SWARMIDENTIFIER%-manager1
+
+for i in {1..%TOTALNODES%} ; do
+  docker service scale consul-vault_consul-secondary=$(expr %TOTALNODES% - $i)
+  sleep 10
+done
+
+docker stack rm $(docker stack ls | awk '{print $1}')

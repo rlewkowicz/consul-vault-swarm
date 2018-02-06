@@ -1,0 +1,25 @@
+LBARN=$(aws elbv2 create-load-balancer --name %CLUSTERNAME%-swarm-%SWARMIDENTIFIER%-elb  \
+--subnets %EC2SUBNET1% %EC2SUBNET2% --scheme internal --security-groups %EC2SECURITY_GROUP_ID% | jq -r ".LoadBalancers[].LoadBalancerArn")
+echo $LBARN
+
+aws elbv2 create-target-group --name %CLUSTERNAME%-swarm-%SWARMIDENTIFIER% --protocol HTTP --port 80 --vpc-id %EC2VPC%
+
+GROUPARN=$(aws elbv2 describe-target-groups --names %CLUSTERNAME%-swarm-%SWARMIDENTIFIER% | jq -r ".TargetGroups[].TargetGroupArn")
+echo $GROUPARN
+
+aws elbv2 deregister-targets --target-group-arn $GROUPARN \
+--targets $(aws elbv2 describe-target-health --target-group-arn $GROUPARN | jq -r '.[][] | select(.TargetHealth="unhealthy")|.Target.Id' | sed "s/^/Id=/g" | tr '\n' ' ')
+
+aws elbv2 register-targets --target-group-arn $GROUPARN \
+--targets $(aws ec2 describe-instances --filters Name=tag-value,Values=%EC2_CONSUL_VALUE% "Name=instance-state-name,Values=running" \
+| jq -r ".Reservations[] | .Instances[] | .InstanceId" | sed "s/^/Id=/g" | tr '\n' ' ')
+
+aws elbv2 modify-target-group --target-group-arn $GROUPARN --health-check-protocol=HTTP --health-check-port=80 --health-check-path=/v1/status/leader --health-check-interval-seconds 5 --health-check-timeout-seconds 4
+
+aws elbv2 create-listener --load-balancer-arn $LBARN \
+--protocol HTTP --port 80 \
+--default-actions Type=forward,TargetGroupArn=$GROUPARN
+
+# aws elbv2 create-listener --load-balancer-arn $LBARN \
+# --protocol HTTPS --port 443 \
+# --default-actions Type=forward,TargetGroupArn=$GROUPARN

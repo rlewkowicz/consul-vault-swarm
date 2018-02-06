@@ -1,0 +1,24 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+ENVSHORT=$(git rev-parse --abbrev-ref HEAD)
+
+if [ $ENVSHORT == 'pr'  ]
+then
+	ENVLONG='production'
+elif [ $ENVSHORT == 'stg' ]
+then
+  ENVLONG='staging'
+elif [ $ENVSHORT == 'dev' ]
+then
+  ENVLONG='development'
+else
+	ENVLONG='sandbox'
+  ENVSHORT='sb'
+fi
+
+sed -i "s/%ENVSHORT%/$ENVSHORT/g" $DIR/../make.sh
+sed -i "s/%ENVLONG%/$ENVLONG/g" $DIR/../make.sh
+
+git add $DIR/../make.sh

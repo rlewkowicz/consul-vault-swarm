@@ -1,0 +1,31 @@
+version: '3.4'
+
+services:
+
+  vault:
+    image: vault:0.9.1
+    networks:
+      - outside
+    configs:
+      - source: vault-config
+        target: /vault-config.json
+    environment:
+      VAULT_ADDR: 'http://127.0.0.1:8200'
+    deploy:
+      replicas: %CONSULSECONDARYNODES%
+      placement:
+        constraints: [node.labels.manager != manager1]
+    entrypoint:
+      - vault
+      - server
+      - -config=/vault-config.json
+      - -log-level=trace
+
+networks:
+  outside:
+    external:
+      name: "host"
+
+configs:
+  vault-config:
+    file: %DIR%/service-configurations/vault-config.json

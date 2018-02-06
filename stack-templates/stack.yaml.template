@@ -1,0 +1,77 @@
+version: '3.4'
+
+services:
+
+  consul-primary:
+    image: consul:1.0.2
+    volumes:
+    - "consuldataebs:/tmp/consuldata"
+    networks:
+    - outside
+    configs:
+      - source: consul-config-%RANDOM%
+        target: /consul-config.json
+    deploy:
+      replicas: 1
+      update_config:
+        delay: 5s
+      placement:
+        constraints: [node.labels.manager == manager1]
+    entrypoint:
+    - sh
+    - -c
+    - 'echo %RANDOM% && consul agent -server -bind="{{ GetInterfaceIP \"eth0\" }}" -config-file="/consul-config.json"'
+
+  consul-secondary:
+    image: consul:1.0.2
+    volumes:
+    - "consuldataebs:/tmp/consuldata"
+    networks:
+    - outside
+    configs:
+      - source: consul-config-%RANDOM%
+        target: /consul-config.json
+    deploy:
+      replicas: %CONSULSECONDARYNODES%
+      update_config:
+        delay: 5s
+      placement:
+        constraints: [node.labels.manager != manager1]
+    entrypoint:
+    - sh
+    - -c
+    - 'echo %RANDOM% && consul agent -server -bind="{{ GetInterfaceIP \"eth0\" }}" -config-file="/consul-config.json"'
+
+  vault:
+    image: vault:0.9.1
+    networks:
+      - outside
+    configs:
+      - source: vault-config
+        target: /vault-config.json
+    environment:
+      VAULT_ADDR: 'http://127.0.0.1:8200'
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.manager == manager1]
+    entrypoint:
+      - sh
+      - -c
+      - 'sleep 40 && vault server -config=/vault-config.json -log-level=trace'
+
+networks:
+  outside:
+    external:
+      name: "host"
+
+volumes:
+  consuldataebs:
+    name: "{{ .Node.Hostname }}-consuldata-{{.Task.Slot}}.{{.Service.Name}}-{{.Node.ID}}"
+    driver: rexray/ebs
+
+configs:
+  consul-config-%RANDOM%:
+    file: %DIR%/service-configurations/consul-config.json
+  vault-config:
+    file: %DIR%/service-configurations/vault-config.json

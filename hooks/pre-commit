@@ -1,0 +1,8 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+sed -i "s/='pr\|='stg\|='dev\|='sb/='%ENVSHORT%/g" $DIR/../make.sh
+sed -i "s/production\|staging\|development\|sandbox/%ENVLONG%/g" $DIR/../make.sh
+
+git add $DIR/../make.sh

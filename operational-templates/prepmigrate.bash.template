@@ -1,0 +1,41 @@
+#!/bin/bash
+machineprep(){
+  OLD_MACHINE_NAME=${1:-default};
+  NEW_MACHINE_NAME=${2:-my-default-2};
+  STORE_PATH=$(docker-machine inspect ${OLD_MACHINE_NAME} | sed -n 's/^ *"StorePath": "\(.*\)",/\1/p')
+  mv "$STORE_PATH/machines/$OLD_MACHINE_NAME" "$STORE_PATH/machines/$NEW_MACHINE_NAME";
+  cp "$STORE_PATH/machines/$NEW_MACHINE_NAME/config.json" "$STORE_PATH/machines/$NEW_MACHINE_NAME/config.json.bak"
+  sed -e "s/$OLD_MACHINE_NAME/$NEW_MACHINE_NAME/g" "$STORE_PATH/machines/$NEW_MACHINE_NAME/config.json.bak" > "$STORE_PATH/machines/$NEW_MACHINE_NAME/config.json";
+}
+
+CLUSTERNAME=%CLUSTERNAME%
+EC2REGION=%EC2REGION%
+EC2_CONSUL_KEY=%EC2_CONSUL_KEY%
+EC2_CONSUL_VALUE=%EC2_CONSUL_VALUE%
+HOST_TYPE=%HOST_TYPE%
+EC2AMI=%EC2AMI%
+EC2IAM=%EC2IAM%
+EC2VPC=%EC2VPC%
+EC2SECURITY_GROUP=%EC2SECURITY_GROUP%
+EC2KEYPAIR=%EC2KEYPAIR%
+EC2KEYPATH=%EC2KEYPATH%
+ENGINEURL=%ENGINEURL%
+SWARMIDENTIFIER=%SWARMIDENTIFIER%
+NUMOFMANAGERS=%NUMOFMANAGERS%
+NUMOFNODES=%NUMOFNODES%
+OTHERTAGS=%OTHERTAGS%
+ENGINEOPTS=%ENGINEOPTS%
+
+for i in $(seq 1 $NUMOFNODES);do
+  (
+    machineprep ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-node${i} ${CLUSTERNAME}-old-${SWARMIDENTIFIER}-node${i}
+    docker-machine ssh ${CLUSTERNAME}-old-${SWARMIDENTIFIER}-node${i} sudo hostname ${CLUSTERNAME}-old-${SWARMIDENTIFIER}-node${i}
+  )&
+done
+
+for i in $(seq 1 $NUMOFMANAGERS);do
+  (
+    machineprep ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-manager${i} ${CLUSTERNAME}-old-${SWARMIDENTIFIER}-manager${i}
+    docker-machine ssh ${CLUSTERNAME}-old-${SWARMIDENTIFIER}-manager${i} sudo hostname ${CLUSTERNAME}-old-${SWARMIDENTIFIER}-manager${i}
+  )&
+done

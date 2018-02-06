@@ -1,0 +1,32 @@
+#!/bin/bash
+denv() {
+  eval "$(docker-machine env $1)"
+}
+
+sn=test-ses
+tmux new-session -s "$sn" -d
+
+for i in {1..%NUMOFMANAGERS%} ; do
+tmux split-window -v -t $(expr $i - 1);
+tmux send-keys "denv %CLUSTERNAME%-swarm-%SWARMIDENTIFIER%-manager$i" 'Enter' 'reset' 'Enter';
+tmux select-layout even-vertical
+done
+
+for i in {1..%NUMOFNODES%} ; do
+tmux split-window -v -t $(expr $i - 1);
+tmux send-keys "denv %CLUSTERNAME%-swarm-%SWARMIDENTIFIER%-node$i" 'Enter' 'reset' 'Enter';
+tmux select-layout even-vertical
+done
+
+tmux kill-pane -t 0
+tmux kill-pane -t 0
+tmux select-layout even-vertical
+tmux set-window-option synchronize-panes
+wait
+sleep .5 && tmux send-keys 'docker exec -ti $(docker ps -a  | grep 'vault:' | head -1 | cut -f1 -d" " ) /bin/sh' &
+wait
+sleep .5 && tmux send-keys 'Enter' 'reset' 'Enter' &
+wait
+sleep .5 && tmux send-keys 'Enter' "vault unseal; vault unseal; vault unseal; vault unseal" 'Enter';
+
+tmux a -t $sn

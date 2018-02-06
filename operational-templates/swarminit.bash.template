@@ -1,0 +1,120 @@
+#!/bin/bash
+CLUSTERNAME=%CLUSTERNAME%
+EC2REGION=%EC2REGION%
+EC2_CONSUL_KEY=%EC2_CONSUL_KEY%
+EC2_CONSUL_VALUE=%EC2_CONSUL_VALUE%
+HOST_TYPE=%HOST_TYPE%
+EC2AMI=%EC2AMI%
+EC2IAM=%EC2IAM%
+EC2VPC=%EC2VPC%
+EC2SECURITY_GROUP=%EC2SECURITY_GROUP%
+EC2KEYPAIR=%EC2KEYPAIR%
+EC2KEYPATH=%EC2KEYPATH%
+ENGINEURL=%ENGINEURL%
+SWARMIDENTIFIER=%SWARMIDENTIFIER%
+NUMOFMANAGERS=%NUMOFMANAGERS%
+NUMOFNODES=%NUMOFNODES%
+OTHERTAGS=%OTHERTAGS%
+ENGINEOPTS=%ENGINEOPTS%
+
+
+denv() {
+  eval "$(docker-machine env $1)"
+}
+DIR=%DIR%
+
+for i in $(seq 1 $NUMOFNODES);do
+  (
+  EC2ZONE='a'
+  EC2SUBNET=%EC2SUBNET1%
+  [ $(($i%2)) -eq 0 ] && EC2ZONE='b' && EC2SUBNET=%EC2SUBNET2%
+  docker-machine  create \
+  --driver amazonec2 \
+  --engine-install-url $ENGINEURL \
+  --amazonec2-userdata $DIR/cloud-init \
+  --amazonec2-instance-type $HOST_TYPE \
+  --amazonec2-ami $EC2AMI \
+  --amazonec2-zone  $EC2ZONE \
+  --amazonec2-tags $EC2_CONSUL_KEY,$EC2_CONSUL_VALUE$OTHERTAGS \
+  --amazonec2-iam-instance-profile $EC2IAM \
+  --amazonec2-private-address-only \
+  --amazonec2-region $EC2REGION \
+  --amazonec2-keypair-name $EC2KEYPAIR \
+  --amazonec2-ssh-keypath $EC2KEYPATH \
+  --amazonec2-vpc-id $EC2VPC \
+  --amazonec2-subnet-id $EC2SUBNET \
+  --amazonec2-security-group $EC2SECURITY_GROUP \
+  ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-node${i}
+  )&
+done
+
+for i in $(seq 1 $NUMOFMANAGERS);do
+  (
+  EC2ZONE='a'
+  EC2SUBNET=%EC2SUBNET1%
+  [ $(($i%2)) -eq 0 ] && EC2ZONE='b' && EC2SUBNET=%EC2SUBNET2%
+  docker-machine  create \
+  --driver amazonec2 \
+  --engine-install-url $ENGINEURL \
+  --amazonec2-userdata $DIR/cloud-init \
+  --amazonec2-instance-type $HOST_TYPE \
+  --amazonec2-ami $EC2AMI \
+  --amazonec2-zone  $EC2ZONE \
+  --amazonec2-tags $EC2_CONSUL_KEY,$EC2_CONSUL_VALUE$OTHERTAGS \
+  --amazonec2-iam-instance-profile $EC2IAM \
+  --amazonec2-private-address-only \
+  --amazonec2-region $EC2REGION \
+  --amazonec2-keypair-name $EC2KEYPAIR \
+  --amazonec2-ssh-keypath $EC2KEYPATH \
+  --amazonec2-vpc-id $EC2VPC \
+  --amazonec2-subnet-id $EC2SUBNET \
+  --amazonec2-security-group $EC2SECURITY_GROUP \
+  ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-manager${i}
+  )&
+done
+
+wait
+
+eval $(docker-machine env ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-manager1)
+if [ "$(docker-machine active)" != "${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-manager1" ]; then
+  echo "Activation failed";
+  exit 1;
+fi
+
+JOINCOMMAND=$(docker swarm init | grep 'docker swarm join --token')
+JOINMANAGER=$(docker swarm join-token manager | grep 'docker swarm join')
+
+for i in $(seq 1 $NUMOFNODES);do
+  (
+  echo "denv ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-node${i}"
+  denv ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-node${i}
+  echo "eval $JOINCOMMAND"
+  eval $JOINCOMMAND
+  )&
+done
+
+for i in $(seq 2 $NUMOFMANAGERS);do
+  (
+  echo "denv ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-manager${i}"
+  denv ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-manager${i}
+  echo "eval $JOINMANAGER"
+  eval $JOINMANAGER
+  )&
+done
+
+wait
+
+for i in $(docker-machine ls -q | grep ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER});do
+  (
+    denv $i
+    docker plugin install rexray/ebs --grant-all-permissions
+  )&
+done
+
+wait
+
+(eval $(docker-machine env ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-manager1)
+docker node update --label-add manager=manager1 ${CLUSTERNAME}-swarm-${SWARMIDENTIFIER}-manager1)
+
+echo "$JOINCOMMAND"
+echo "$JOINMANAGER"
