@@ -1,3 +1,5 @@
+If you like the project, leave me a star!
+
 # What is it?
 It's vault and consul in a HA setup deployed via docker swarm. You can deploy any number of consul nodes and it will spin up vault on top of those. The data volumes are persistent via rexray. Vault uses consul as a storage backend.
 
@@ -39,6 +41,7 @@ docker stack deploy --compose-file stacks/stack.yaml consul-vault #this name is 
 docker exec -ti $(docker ps -a  | grep vault: | head -1 | cut -f1 -d" " ) /bin/sh
 vault init
 vault unseal; vault unseal; vault unseal
+#back on your host
 docker stack deploy --compose-file stacks/vaultHA.yaml vaultha
 #There is a helper script "tmux.bash" that should terminal you into all of your instances provided you have tmux installed.
 #The open source vault docs say that the unseal process is a manual one and this should streamline the process
