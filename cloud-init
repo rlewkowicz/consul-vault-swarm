@@ -12,7 +12,6 @@ write_files:
 package_update: true
 
 packages:
- - wazuh-agent
  - apt-transport-https
  - git
  - jq
