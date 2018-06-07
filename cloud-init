@@ -18,6 +18,6 @@ packages:
 
 runcmd:
 - [ sh, -c, "GOROOT=/usr/local/go GOPATH=/go /usr/local/go/bin/go get -u github.com/hashicorp/go-sockaddr/cmd/sockaddr" ]
-- [ sh, -c, "curl -sSL https://dl.bintray.com/emccode/rexray/install | sh" ]
+- [ sh, -c, "curl -sSL https://rexray.io/install | sh -s -- stable" ]
 - [ nohup, sh, -c, "rexray install && service rexray start", '&' ]
 - [ sh, -c, "iptables --flush" ]
